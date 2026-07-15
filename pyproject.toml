@@ -1,0 +1,128 @@
+[project]
+name = "tensorsketch-core"
+version = "0.1.0"
+description = "A code-first, visually-editable, durable agentic framework — the core of TensorSketch."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+# Optional: personalize with your name/email, e.g. { name = "…", email = "…" }.
+authors = [{ name = "The TensorSketch Authors" }]
+keywords = ["agents", "llm", "workflow", "durable-execution", "agentic", "tensorsketch"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+
+# The core deliberately depends on almost nothing. Model providers, interop protocols, and storage
+# backends are optional extras (below), so `pip install tensorsketch-core` never drags in an LLM
+# SDK or a database driver.
+dependencies = [
+    "pydantic>=2.7",
+    "typing-extensions>=4.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/tensorsketch-ai/tensorsketch-core"
+Documentation = "https://github.com/tensorsketch-ai/tensorsketch-core"
+Repository = "https://github.com/tensorsketch-ai/tensorsketch-core"
+Issues = "https://github.com/tensorsketch-ai/tensorsketch-core/issues"
+Changelog = "https://github.com/tensorsketch-ai/tensorsketch-core/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+# Real model providers are opt-in — the core never imports an SDK.
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.40"]
+google = ["google-genai>=0.3"]
+# The code<->canvas engine parses Python with a CST. Authoring-time tooling, not runtime.
+canvas = ["libcst>=1.1"]
+# Bring-your-own-database backends (durable checkpoints, effect journal, event log). Drivers are
+# imported lazily, so the core never depends on them.
+postgres = ["psycopg[binary]>=3.1"]
+redis = ["redis>=5"]
+# MCP interop (consume external tool servers; expose TensorSketch tools). Imported only via
+# tensorsketch.interop.mcp.
+mcp = ["mcp>=1.2"]
+# Export TensorSketch's native traces to OpenTelemetry. Imported only via tensorsketch.observability.otel.
+otel = ["opentelemetry-sdk>=1.20"]
+# Serve a TensorSketch agent over standard protocols (OpenAI-compatible, A2A, AG-UI). Starlette + an
+# async HTTP client, imported only via tensorsketch.serve; run the returned ASGI app with any server.
+serve = ["starlette>=0.37", "httpx>=0.27"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "mypy>=1.10",
+    "ruff>=0.5",
+    "libcst>=1.1",
+    # fakeredis exercises the RedisBackend end-to-end in CI without a Redis server.
+    "fakeredis>=2.20",
+    "mcp>=1.2",
+    # opentelemetry-sdk lets the OTel adapter be tested against a real in-memory span exporter.
+    "opentelemetry-sdk>=1.20",
+    # starlette + httpx drive the serving layer and its tests (Starlette's TestClient uses httpx).
+    "starlette>=0.37",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tensorsketch"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q"
+# Starlette's TestClient warns that it uses httpx (it suggests httpx2); we test the ASGI apps
+# through it deliberately. Silence only that third-party deprecation.
+filterwarnings = ["ignore:Using `httpx`"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "examples"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# RUF012: Pydantic deep-copies field defaults, so `x: list = []` on a Schema is safe — the
+# "mutable default" warning is a false positive for our model-heavy code.
+ignore = ["RUF012"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+# Provider SDKs and DB drivers are optional installs; don't require their stubs to typecheck.
+[[tool.mypy.overrides]]
+module = ["anthropic.*", "openai.*", "google.*", "psycopg.*", "redis.*", "fakeredis.*"]
+ignore_missing_imports = true
+
+# Starlette and httpx are optional (the `serve` extra); don't require them to typecheck the core.
+[[tool.mypy.overrides]]
+module = ["starlette.*", "httpx.*"]
+ignore_missing_imports = true
+
+# The MCP and OpenTelemetry SDKs ship their own (untyped-in-places) types; skip following them so
+# the thin adapters treat them as Any rather than fighting the SDKs' decorator/union types.
+[[tool.mypy.overrides]]
+module = ["mcp.*", "opentelemetry.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+# The MCP server's handler registration uses untyped decorators (`@server.list_tools()`); allow
+# them in the adapter that wraps the SDK. Everything else stays strict.
+[[tool.mypy.overrides]]
+module = ["tensorsketch.interop.mcp"]
+disallow_untyped_decorators = false

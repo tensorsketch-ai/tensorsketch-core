@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TensorSketch Studio</title>
+    <link rel="stylesheet" href="/studio.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="brand">
+        <span class="logo">✳</span>
+        <span class="title">TensorSketch&nbsp;Studio</span>
+      </div>
+      <div class="file" id="file">—</div>
+      <div class="spacer"></div>
+      <div class="holes" id="holes" title="nodes that still need code across the project — click to list"></div>
+      <div id="holes-panel" class="popover" hidden></div>
+      <div class="hint">drag a node to <b>move</b> it · drag its <b>right edge</b> → another node to wire · <kbd>⌫</kbd> deletes a selected arrow</div>
+      <button id="add-node" class="btn" title="create a new node (generates a typed stub in your code)">+ node</button>
+      <button id="live" class="btn" title="overlay the live trace as your agent runs (feed it via http_span_sink)">▶ live</button>
+      <button id="reset" class="btn">reset view</button>
+    </header>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="palette" class="modal-backdrop" hidden>
+      <div class="modal">
+        <h2>New node</h2>
+        <label>Name<input id="np-name" placeholder="Summarize" autocomplete="off" spellcheck="false" /></label>
+        <label>Inputs<input id="np-in" placeholder="query: str, context: str" autocomplete="off" spellcheck="false" /></label>
+        <label>Outputs<input id="np-out" placeholder="answer: str" autocomplete="off" spellcheck="false" /></label>
+        <p class="np-hint">Ports optional. The node is born a <b>hole</b> — fill its body in code.</p>
+        <p id="np-error" class="np-error"></p>
+        <div class="modal-actions">
+          <button id="np-cancel" class="btn">cancel</button>
+          <button id="np-create" class="btn primary">create</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="statusbar">
+      <span class="truth">code is the source of truth — canvas edits are written straight back</span>
+      <span class="spacer"></span>
+      <span id="status" class="status"></span>
+    </footer>
+
+    <script src="/studio.js"></script>
+  </body>
+</html>

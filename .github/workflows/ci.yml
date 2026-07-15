@@ -1,0 +1,40 @@
+name: ci
+
+# Runs on every push and pull request. This is the correctness gate — it does NOT publish.
+# Publishing happens separately, only when you cut a release (see publish.yml).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: lint · types · tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests examples benchmarks
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check src tests examples benchmarks
+
+      - name: Type-check (mypy --strict)
+        run: uv run mypy
+
+      - name: Tests (pytest)
+        run: uv run pytest

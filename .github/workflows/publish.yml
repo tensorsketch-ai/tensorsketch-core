@@ -1,0 +1,69 @@
+name: publish
+
+# Publishes tensorsketch-core to PyPI when you cut a GitHub Release.
+#
+# Flow: bump `version` in pyproject.toml → commit to main → create a GitHub Release whose tag
+# matches (e.g. v0.1.1). This workflow then builds and uploads that version. PyPI refuses to
+# overwrite an existing version, so each release must carry a new version number.
+#
+# Auth is PyPI **Trusted Publishing** (OpenID Connect) — no API token or secret is stored anywhere.
+# One-time setup on PyPI (https://pypi.org/manage/account/publishing/), done once the name exists:
+#   Owner: tensorsketch-ai   Repository: tensorsketch-core
+#   Workflow: publish.yml     Environment: pypi
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: build + verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      # A publish can't be undone, so gate on the same checks CI runs before building.
+      - name: Lint · format · types · tests
+        run: |
+          uv run ruff check src tests examples benchmarks
+          uv run ruff format --check src tests examples benchmarks
+          uv run mypy
+          uv run pytest
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # The `pypi` environment lets you add release protections (e.g. required approval) in repo
+    # settings, and is the environment PyPI's trusted-publisher config points at.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tensorsketch-core
+    permissions:
+      id-token: write # mint the short-lived OIDC token trusted publishing uses (no stored secret)
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
