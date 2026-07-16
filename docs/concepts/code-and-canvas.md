@@ -97,11 +97,21 @@ ir.edges.append(EdgeIR(source="Billing", target="Review", kind="sequential"))  #
 new_source = reconstruct(source, ir)
 ```
 
-`reconstruct` regenerates the graph definition as **one canonical fluent chain** assigned to the
-graph variable, and drops any now-redundant wiring statements it folded in. Everything else —
-node classes and their bodies, imports, comments, unrelated code — is preserved **byte-for-byte**,
-because nothing else is touched. The generated chain is cleanly indented for wherever it sits
-(module level or nested in a function).
+`reconstruct` regenerates the graph definition and drops any now-redundant wiring statements it
+folded in. Everything else — node classes and their bodies, imports, comments, unrelated code —
+is preserved **byte-for-byte**, because nothing else is touched.
+
+Write-back is **style-preserving**: it detects how the source authored its wiring and re-emits in
+that same style, so the file reads the way you wrote it after a canvas edit:
+
+| Authoring style | What write-back emits |
+| --- | --- |
+| **fluent** — `app = Graph(S).add(A).edge(x, y)` (one chained expression) | the same chain, re-indented for wherever it sits (module level or nested in a function) |
+| **statement** — `g = Graph(S)` then separate `g.add(A)` / `g.edge(x, y)` lines | a bare `g = Graph(S)` plus one statement per wiring op |
+| **arrow** — `a, b = g.nodes(A, B)` then `START >> a >> Router(...)` | `g.nodes(...)` handles and `>>` statements (linear runs merge into one `a >> b >> c` spine) |
+
+All three styles render from the same ordered wiring walk, so the edges come out in identical
+order whichever style is chosen — which is exactly what keeps the round-trip a list equality.
 
 ### Creating a node
 
@@ -146,12 +156,11 @@ The safety property is the **round-trip invariant**, enforced in CI:
 extract(reconstruct(extract(code))) == extract(code)
 ```
 
-Re-extracting reconstructed code yields the identical graph. A corollary: because reconstruct
-emits one canonical normal form, it also *tidies* wiring regardless of how it was authored —
-`.entry(x)` becomes `.edge(START, "x")`, statement-style calls and `a >> b` collapse into the
-chain, and conditional mappings are normalized — without ever changing what the graph *is*.
-(Trade-off: a comment sitting on a folded wiring statement moves with it; comments on nodes,
-imports, and unrelated code are untouched.)
+Re-extracting reconstructed code yields the identical graph. Within a style, reconstruct still
+*tidies* wiring without changing what the graph *is* — `.entry(x)` becomes `.edge(START, "x")`,
+conditional mappings are normalized, and a fluent chain is cleanly re-indented. (Trade-off: a
+comment sitting on a folded wiring statement moves with it; comments on nodes, imports, and
+unrelated code are untouched.)
 
 ## Install
 
@@ -178,9 +187,5 @@ are optional and forgiving: a node with no saved position falls back to the auto
 layout, a stale entry for a deleted node is ignored, and losing the sidecar loses only the
 arrangement — never the graph. This keeps the code clean while letting you arrange the canvas by
 hand.
-
-## Roadmap
-
-- Style-preserving write-back (keep the author's `>>`/statement style instead of canonicalizing).
 
 See the [architecture plan](../design/framework-design.md) for the full design.

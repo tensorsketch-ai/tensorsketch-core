@@ -242,19 +242,38 @@ def test_alt_styles_round_trip(source: str) -> None:
     assert "# opaque body — must survive write-back verbatim" in out
 
 
-@pytest.mark.parametrize("source", [_STATEMENT_STYLE, _RSHIFT_STYLE])
-def test_alt_styles_canonicalize_to_fluent_chain(source: str) -> None:
-    """Both styles fold into one canonical fluent chain assigned to the graph variable."""
-    out = reconstruct(source, extract(source))
-    assert "g = (\n    Graph(Support)" in out  # a single, cleanly-indented chain
-    assert '.edge(START, "Classify")' in out
-    assert '.conditional("Classify", route, {"billing": "Billing"})' in out
-    # the folded statements are gone
-    assert ">>" not in out
-    assert "g.nodes(" not in out
-    assert "g.add(" not in out
-    # the separate compile() line is left alone
+def test_statement_style_is_preserved() -> None:
+    """A statement-style graph stays statement-style — bare construction + separate g.xxx lines."""
+    out = reconstruct(_STATEMENT_STYLE, extract(_STATEMENT_STYLE))
+    assert "g = Graph(Support)" in out  # bare construction, not folded into a chain
+    assert "g.add(Classify)" in out
+    assert 'g.edge(START, "Classify")' in out
+    assert 'g.conditional("Classify", route, {"billing": "Billing"})' in out
+    assert ">>" not in out  # did not turn into arrow style
+    assert "app = g.compile()" in out  # the separate compile() line is left alone
+
+
+def test_arrow_style_is_preserved() -> None:
+    """A `>>` graph stays arrow-style — g.nodes(...) handles and `>>` statements."""
+    out = reconstruct(_RSHIFT_STYLE, extract(_RSHIFT_STYLE))
+    assert "g = Graph(Support)" in out  # bare construction
+    assert "classify, billing = g.nodes(Classify, Billing)" in out
+    assert "START >> classify" in out
+    assert "billing >> END" in out
+    assert "classify >> Router(route" in out  # conditional stays a Router
     assert "app = g.compile()" in out
+
+
+def test_arrow_style_preserves_fan_out_edges() -> None:
+    """A `>>` graph with fan-out round-trips as arrow style (linear runs merge into a chain)."""
+    source = _CLASSES + (
+        "g = Graph(Support)\n"
+        "classify, billing = g.nodes(Classify, Billing)\n"
+        "START >> classify >> billing >> END\n"
+    )
+    out = reconstruct(source, extract(source))
+    assert extract(out) == extract(source)
+    assert "START >> classify >> billing >> END" in out  # the linear spine stays one chain
 
 
 def test_annotated_graph_var_round_trips() -> None:
@@ -270,7 +289,8 @@ def test_annotated_graph_var_round_trips() -> None:
     assert ir.added == ["Classify", "Billing"]
     out = reconstruct(source, ir)
     assert extract(out) == ir
-    assert ">>" not in out and "g.nodes(" not in out
+    # arrow style is preserved through the AnnAssign construction
+    assert "START >> classify >> billing" in out and "g.nodes(" in out
 
 
 # -- node creation (canvas palette) ---------------------------------------------------------
@@ -359,8 +379,8 @@ def test_create_portless_node_uses_pass() -> None:
     assert extract(out).node("Blank") == node
 
 
-def test_nested_builder_indents_cleanly() -> None:
-    """A builder inside a function body indents its continuation lines to match the block."""
+def test_nested_statement_builder_stays_indented() -> None:
+    """A statement-style builder inside a function keeps its style and the block's indentation."""
     source = (
         "def build():\n"
         "    g = Graph(Support)\n"
@@ -370,5 +390,31 @@ def test_nested_builder_indents_cleanly() -> None:
         "    return g.compile()\n"
     )
     out = reconstruct(source, extract(source))
-    assert "    g = (\n        Graph(Support)" in out  # base indent 4, continuation 8
+    assert "    g = Graph(Support)\n" in out  # construction stays bare, at the block's indent
+    assert '    g.edge(START, "Classify")\n' in out  # wiring lines re-emitted at indent 4
+    assert "    return g.compile()\n" in out  # the trailing statement is untouched
     assert extract(out) == extract(source)
+
+
+def test_add_edge_in_statement_style_stays_statement_style() -> None:
+    """Editing wiring on a statement-style graph re-emits statements, not a fluent chain."""
+    ir = extract(_STATEMENT_STYLE)
+    ir.edges.append(EdgeIR(source="Billing", target="Classify", kind="sequential"))
+    out = reconstruct(_STATEMENT_STYLE, ir)
+    assert 'g.edge("Billing", "Classify")' in out
+    assert ">>" not in out and "g = (\n" not in out
+    assert ("Billing", "Classify", "sequential") in {
+        (e.source, e.target, e.kind) for e in extract(out).edges
+    }
+
+
+def test_add_edge_in_arrow_style_stays_arrow_style() -> None:
+    """Editing wiring on a `>>` graph re-emits `>>`, not a fluent chain."""
+    ir = extract(_RSHIFT_STYLE)
+    ir.edges.append(EdgeIR(source="Billing", target="Classify", kind="sequential"))
+    out = reconstruct(_RSHIFT_STYLE, ir)
+    assert "billing >> classify" in out
+    assert "g = (\n" not in out
+    assert ("Billing", "Classify", "sequential") in {
+        (e.source, e.target, e.kind) for e in extract(out).edges
+    }

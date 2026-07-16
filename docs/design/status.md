@@ -4,9 +4,11 @@ The single source of truth for **what's built** and **what's deliberately deferr
 reason). Updated as work lands, so nothing gets dropped. Pairs with the [roadmap](roadmap.md)
 (phase plan) and the [architecture plan](framework-design.md) (the full design).
 
-Last updated: renamed to **TensorSketch** (`import tensorsketch`, dist `tensorsketch-core` 0.1.0) +
-packaging foundation (LICENSE, classifiers, URLs, wheel verified); multi-agent coordination
-(`as_tool`); the Studio's node-creation palette, project-wide hole surfacing, and layout sidecar.
+Last updated: **Phase 1 complete** — style-preserving write-back (fluent / statement / `>>` all
+re-emit in their own style, edge order preserved via one shared wiring walk). Earlier: renamed to
+**TensorSketch** (`import tensorsketch`, dist `tensorsketch-core` 0.1.0) + packaging foundation
+(LICENSE, classifiers, URLs, wheel verified); multi-agent coordination (`as_tool`); the Studio's
+node-creation palette, project-wide hole surfacing, and layout sidecar. (`__version__` now 0.1.0.)
 
 ## Naming & packaging ✅
 
@@ -61,20 +63,24 @@ packaging foundation (LICENSE, classifiers, URLs, wheel verified); multi-agent c
   distinct per-instance journal keys, crash-mid-fan-out resume exactly-once across memory/SQLite/
   Redis. **Phase 2 is now complete** (its roadmap boxes all done). *See [decisions](decisions.md) D8.*
 
-### Phase 1 — code⇄canvas engine (in progress) 🚧
+### Phase 1 — code⇄canvas engine ✅ (complete)
 
 - **CST extraction** (`tensorsketch.canvas.extract`, optional `canvas` extra): parses TensorSketch source with
   libcst — import-free, works on incomplete/hole code — into a JSON-able `GraphIR` (nodes + typed
   ports + `has_hole` + wiring from the `Graph(...)` builder, conditional mappings expanded).
-- **Write-back** (`tensorsketch.canvas.reconstruct`): folds the graph definition into one canonical
-  fluent chain, byte-preserving bodies/imports/comments; the **round-trip invariant**
+- **Write-back** (`tensorsketch.canvas.reconstruct`): regenerates only the graph definition from the
+  (edited) IR, byte-preserving bodies/imports/comments; the **round-trip invariant**
   `extract(reconstruct(extract)) == extract` is a parametrized test gate. Also **generates node
   stubs** — a new node the IR names gets a synthesized `class X(Node)` (typed ports + `Hole` body).
 - **`>>` wiring surface** (`tensorsketch.core.wiring`: `NodeHandle`/`Router`, `Graph.nodes()`/`graph[name]`):
   `START >> a >> Router(fn, ...)`, fan-out via `a >> [b, c]` — pure sugar over the builder.
-- **Multi-style extraction + canonicalization**: fluent chain, statement-style (incl. annotated
-  `g: Graph[S] = ...`), and `>>` all extract to the same IR; write-back canonicalizes any of them
-  to the fluent chain with clean indentation at any nesting depth. `add(name=...)` renames handled.
+- **Style-preserving write-back**: fluent chain, statement-style (incl. annotated
+  `g: Graph[S] = ...`), and `>>` all extract to the same IR; write-back detects which style the
+  source used and **re-emits in that same style** (a chain stays a chain, statements stay
+  statements, `>>` stays `>>`), rather than canonicalizing to the fluent chain. All three render
+  from one ordered wiring walk (`_wiring_items`), so edge order — and thus the list-equality
+  round-trip — is preserved by construction; linear `>>` runs merge into one `a >> b >> c` spine.
+  Clean indentation at any nesting depth; `add(name=...)` renames handled.
 - **Studio** — the visual canvas (`tensorsketch.canvas.server` + `tensorsketch/canvas/studio/`, run via
   `python -m tensorsketch.canvas <file>`): a stdlib localhost bridge serving `extract`, a hand-drawn
   Excalidraw-aesthetic frontend (layered layout, typed ports, hole/conditional rendering), and
@@ -136,10 +142,10 @@ Each item is real and intended — just not built yet. Grouped by area, newest-r
   `stream`).
 - Token-level streaming from provider nodes (flows through `ctx.emit`).
 
-### Phase 1 — code⇄canvas engine (in progress — the headline differentiator)
+### Phase 1 — code⇄canvas engine (complete — the headline differentiator)
 
 - **Done:** CST extraction (fluent + statement-style + `>>`), the `>>` authoring surface,
-  surgical write-back with canonicalization + clean formatting, the round-trip invariant, and the
+  surgical **style-preserving** write-back with clean formatting, the round-trip invariant, and the
   **Studio** (bridge + hand-drawn frontend) closing the loop end to end.
 - **New authoring forms extract + round-trip:** `router(...)` (== `conditional`), and
   `loop(node, until, *, exit=END)` (a two-branch conditional: a self-loop the canvas draws as an
@@ -158,8 +164,12 @@ Each item is real and intended — just not built yet. Grouped by area, newest-r
 - **Layout sidecar:** manual node positions persist in `‹file›.py.layout.json` beside the source
   (never in the code) — `POST /api/layout` writes it, `GET /api/graph` serves it; drag a node's
   body to move it, unmoved nodes keep the automatic layered layout. Malformed/stale entries ignored.
-- **Next / last Phase 1 item:** style-preserving write-back (keep the author's `>>`/statement style
-  vs canonicalizing).
+- **Style-preserving write-back (done — the last Phase 1 item):** write-back detects the source's
+  style (fluent / statement / `>>`) and re-emits in it instead of canonicalizing to a fluent chain.
+  All three styles render from one ordered wiring walk (`_wiring_items`), so the emitted edge order
+  is identical across styles — the round-trip stays a list equality by construction. Linear `>>`
+  runs merge into one `a >> b >> c` spine; an arrow graph that gains its first conditional gets a
+  `from tensorsketch import Router` import added. **Phase 1 is now complete.**
 
 ### Phase 3 — extensibility, interop, observability (in progress) 🚧
 

@@ -58,7 +58,8 @@ Every edit changes the **wiring** — never a node body — and is written back 
 
 After each edit the canvas resyncs from the **re-extracted** code — so what you see is always
 exactly what the file now says. Node bodies, imports, and comments are preserved untouched; only
-the graph definition is rewritten (into one canonical, cleanly-formatted builder chain).
+the graph definition is rewritten, and it's rewritten in the **same authoring style you used**
+(fluent chain, statement-style calls, or the `>>` operators) rather than collapsing to one form.
 
 ## Live trace overlay
 
@@ -96,6 +97,6 @@ gesture round-trips through your code.
 ## Scope
 
 Today the Studio renders any graph, creates nodes from a palette, moves them (positions persist in
-a sidecar), adds/removes edges, and surfaces holes across the project — all through the round-trip.
-Style-preserving write-back (keeping the author's `>>`/statement style instead of canonicalizing)
-is the remaining item on the [roadmap](../design/roadmap.md).
+a sidecar), adds/removes edges, and surfaces holes across the project — all through the round-trip,
+and every rewrite preserves your authoring style (fluent / statement / `>>`). That completes the
+code⇄canvas engine; see the [roadmap](../design/roadmap.md) for what's next.

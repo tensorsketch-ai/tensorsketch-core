@@ -15,7 +15,7 @@ versions; once TensorSketch reaches 1.0 it follows semantic versioning.
   a `py.typed` marker; the wheel ships the Studio assets. `pip install tensorsketch-core`; extras
   (`anthropic`, `openai`, `google`, `canvas`, `postgres`, `redis`, `mcp`, `otel`, `serve`) unchanged.
 
-### Added — Phase 1 (code⇄canvas), in progress
+### Added — Phase 1 (code⇄canvas), complete
 
 - **CST extraction** (`tensorsketch.canvas.extract`, optional `canvas` extra) — parses TensorSketch source into a
   JSON-able `GraphIR` (nodes, typed ports, hole detection, and the wiring). Import-free, so it
@@ -24,10 +24,15 @@ versions; once TensorSketch reaches 1.0 it follows semantic versioning.
 - **`>>` wiring surface** (`tensorsketch.core.wiring`) — `Graph.nodes(...)` returns handles; `START >> a`,
   `a >> b`, `a >> [b, c]`, and `a >> Router(fn, ...)` wire the graph like a diagram. Pure sugar
   over `.add`/`.edge`/`.conditional` — the compiled graph is identical.
-- **Write-back** (`tensorsketch.canvas.reconstruct`) — applies an edited `GraphIR` back to source by
-  folding the graph definition into one canonical, cleanly-indented fluent chain (any authoring
-  style collapses to it); node bodies, imports, and comments are byte-preserved. The round-trip
-  invariant `extract(reconstruct(extract(code))) == extract(code)` is a test gate.
+- **Write-back** (`tensorsketch.canvas.reconstruct`) — applies an edited `GraphIR` back to source,
+  regenerating only the graph definition; node bodies, imports, and comments are byte-preserved. The
+  round-trip invariant `extract(reconstruct(extract(code))) == extract(code)` is a test gate.
+- **Style-preserving write-back** — write-back now detects the source's authoring style and re-emits
+  in it, instead of collapsing everything to one fluent chain: a fluent chain stays a chain, a
+  statement-style graph (`g = Graph(S)` + `g.add(...)` lines) stays statements, and a `>>` graph
+  stays `>>` (with `g.nodes(...)` handles; linear runs merge into one `a >> b >> c` spine). All three
+  styles render from a single ordered wiring walk, so edges come out in the same order regardless of
+  style — which is what keeps the round-trip a list equality. Completes the Phase 1 code⇄canvas engine.
 - **Studio** (`tensorsketch.canvas.server`, `python -m tensorsketch.canvas <file>`) — the visual canvas: a
   stdlib localhost bridge that serves `extract` to a hand-drawn, Excalidraw-aesthetic frontend
   (`tensorsketch/canvas/studio/`) and applies `reconstruct` on every edit. Renders nodes with typed

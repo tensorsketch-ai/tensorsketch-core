@@ -23,7 +23,7 @@ The foundation everything else stands on.
 - [x] Hardening — edge-case coverage, micro-benchmarks, `ruff format`, and GitHub Actions CI
       (lint · format · strict types · tests on Python 3.11 + 3.12)
 
-## Phase 1 — Authoring model & code⇄canvas engine _(in progress — the differentiator)_
+## Phase 1 — Authoring model & code⇄canvas engine _(complete — the differentiator)_
 
 - [x] **CST extraction** (`tensorsketch.canvas.extract`, import-free) — nodes + typed ports + hole
       detection + the `Graph(...)` builder wiring → a JSON-able `GraphIR`
@@ -44,7 +44,9 @@ The foundation everything else stands on.
       Studio counts holes across the project and lists them (file · node · `Hole` message)
 - [x] **Layout sidecar** — drag to arrange; positions persist in `‹file›.py.layout.json` beside
       the code (never in it), with automatic layout as the fallback
-- [ ] Style-preserving write-back (keep the author's `>>`/statement style vs canonicalizing)
+- [x] **Style-preserving write-back** — detect the source's style (fluent / statement / `>>`) and
+      re-emit in it; all three render from one ordered wiring walk, so edge order (and the
+      round-trip) is preserved by construction
 
 ## Phase 2 — Agent primitives & prebuilt API _(complete)_
 
